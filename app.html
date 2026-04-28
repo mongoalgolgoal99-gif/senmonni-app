@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <title>専門医更新ナビ </title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+
+</head>
+
+<body class="bg-pink-100 p-4">
+  <div id="app" class="max-w-md mx-auto">
+
+    <h1 class="text-xl font-bold mb-4">専門医更新ナビ</h1>
+
+    <!-- 表示切替 -->
+<div class="bg-white p-3 rounded mb-3 text-center">
+  <button id="btn-mobile" onclick="setView('mobile')" class="px-3 py-1 bg-blue-500 text-white rounded mr-2">スマホ</button>
+  <button id="btn-pc" onclick="setView('pc')" class="px-3 py-1 bg-gray-500 text-white rounded">PC</button>
+</div>
+
+<!-- Google Login -->
+<div id="auth-section" class="bg-white p-3 rounded mb-3">
+  <div id="login-ui" class="text-center">
+    <button id="google-login-btn" onclick="loginWithGoogle()" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center mx-auto gap-2">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 11c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm0 2c-2.761 0-5 2.239-5 5s2.239 5 5 5 5-2.239 5-5-2.239-5-5-5z"/>
+        <path d="M19.5 9.5c0 1.381-1.119 2.5-2.5 2.5s-2.5-1.119-2.5-2.5 1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5z" opacity="0.3"/>
+      </svg>
+      Google でログイン
+    </button>
+  </div>
+
+  <div id="logout-ui" class="text-center hidden">
+    <div class="mb-2 text-sm">
+      <span class="font-bold" id="user-name">User</span> でログイン中
+    </div>
+    <button id="logout-btn" onclick="logoutUser()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+      ログアウト
+    </button>
+  </div>
+</div>
+<div id="undoBox" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-2 rounded hidden">
+  削除しました
+  <button onclick="undoDelete()" class="ml-3 underline">元に戻す</button>
+</div>
+
+<!-- 専門医 -->
+<div id="specialty-block" class="bg-blue-50 rounded mb-3 p-3">
+  <div class="text-sm font-bold text-gray-700 mb-2">管理する専門医資格を選択</div>
+  <label><input type="checkbox" value="総合診療" onchange="updateSpecialty()"> 総合診療</label><br>
+  <label><input type="checkbox" value="小児科" onchange="updateSpecialty()"> 小児科</label><br>
+  <label><input type="checkbox" value="総合内科" onchange="updateSpecialty()"> 総合内科</label>
+</div>
+
+<div class="bg-green-50 rounded mb-3">
+  <div class="p-3">
+    <div class="text-sm font-bold text-gray-700 mb-2">データ入力対象の科を選択</div>
+    <select id="input-specialty" onchange="filterItems()" class="w-full border p-2 rounded bg-yellow-50">
+      <option value="" disabled selected>--- 科を選択してください ---</option>
+    </select>
+  </div>
+</div>
+
+<!-- 入力 -->
+<div class="bg-white rounded mb-3">
+<div id="input-block" class="bg-white rounded-xl shadow p-4 space-y-3">
+
+  <select id="item"
+    class="w-full border rounded-lg p-3"
+    disabled></select>
+
+  <!-- 病例数入力（病例数項目の場合のみ表示） -->
+  <div id="count-input-group" class="hidden">
+    <div class="text-xs text-gray-500 mb-1">病例数</div>
+    <input id="count-value" type="number" min="0"
+      class="w-full border rounded-lg p-3 text-lg text-center bg-yellow-50 font-bold"
+      disabled>
+  </div>
+
+  <div class="flex items-end gap-3">
+    <div class="flex-1">
+      <div class="text-xs text-gray-500 mb-1">単位</div>
+      <div class="flex items-center gap-2">
+        <button onclick="adjustUnit(-1)" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-lg font-bold" disabled id="unit-minus">-</button>
+        <input id="unit" type="number" step="0.1" min="0"
+          class="flex-1 border rounded-lg p-3 text-lg text-center bg-yellow-50 font-bold"
+          disabled>
+        <button onclick="adjustUnit(1)" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-lg font-bold" disabled id="unit-plus">+</button>
+      </div>
+    </div>
+
+    <div class="flex-1">
+      <div class="text-xs text-gray-500 mb-1">日付</div>
+      <input id="date" type="date"
+        class="w-full border rounded-lg p-3"
+        disabled>
+    </div>
+  </div>
+
+  <button id="addBtn"
+    onclick="addRecord()"
+    class="w-full bg-blue-500 text-white p-3 rounded-lg"
+    disabled>
+    ＋追加
+  </button>
+
+</div>
+
+<div class="flex flex-col md:flex-row gap-2"></div>
+<div id="result"></div>
+<div id="history"></div>
+
+<script>
+
+// ===== Firebase 初期化 =====
+const firebaseConfig = {
+  apiKey: "AIzaSyABCDbTihtoCQdptrOkx5bTXp87h51rj-Y",
+  authDomain: "specialitydr.firebaseapp.com",
+  databaseURL: "https://specialitydr-default-rtdb.firebaseio.com",
+  projectId: "specialitydr",
+  storageBucket: "specialitydr.firebasestorage.app",
+  messagingSenderId: "1027051727531",
+  appId: "1:1027051727531:web:27de5da787bf20cbdde5ee",
+  measurementId: "G-409XR7RD03"
+};
+
+let auth = null;
+let database = null;
+let firebaseReady = false;
+
+// Firebase SDK がロードされるのを待って初期化
+function initFirebase() {
+  if (typeof firebase !== 'undefined' && !firebaseReady) {
+    try {
+      firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      database = firebase.database();
+      firebaseReady = true;
+      console.log('Firebase initialized');
+    } catch (e) {
+      console.error('Firebase初期化エラー:', e);
+    }
+  }
+}
+
+// Firebase SDKがロードされるまでポーリング
+function waitForFirebase() {
+  let attempts = 0;
+  const maxAttempts = 20;
+  
+  const checkFirebase = () => {
+    attempts++;
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+      initFirebase();
+    } else if (attempts < maxAttempts) {
+      setTimeout(checkFirebase, 300);
+    }
+  };
+  
+  checkFirebase();
+}
+
+// ページ読み込み後にFirebaseを初期化
+window.addEventListener('load', waitForFirebase);
+
+let currentUser = null;
+let isLoggedIn = false;
+
+// ===== 表示切替 =====
+function setView(mode) {
+  if (!window.currentView) window.currentView = 'mobile';
+
+  if (window.currentView === mode) return;
+
+  window.currentView = mode;
+
+  const app = document.getElementById('app');
+  const btnMobile = document.getElementById('btn-mobile');
+  const btnPc = document.getElementById('btn-pc');
+
+  if (mode === 'pc') {
+    app.classList.remove('max-w-md');
+    app.classList.add('max-w-4xl');
+
+    btnPc.classList.remove('bg-gray-500');
+    btnPc.classList.add('bg-blue-500');
+
+    btnMobile.classList.remove('bg-blue-500');
+    btnMobile.classList.add('bg-gray-500');
+
+  } else {
+    app.classList.remove('max-w-4xl');
+    app.classList.add('max-w-md');
+
+    btnMobile.classList.remove('bg-gray-500');
+    btnMobile.classList.add('bg-blue-500');
+
+    btnPc.classList.remove('bg-blue-500');
+    btnPc.classList.add('bg-gray-500');
+  }
+}
+
+// ===== Local Storage =====
+let records = [];
+let meta = {};
+let selectedSpecialties = [];
+let lastDeleted = null;
+
+function setInputEnabled(enabled){
+  document.getElementById('input-block').style.display =
+    enabled ? 'block' : 'none';
+
+  inputOpen = enabled;
+}
+
+function updateInputView() {
+  const isPC = window.innerWidth > 768;
+
+  setInputEnabled(isPC);
+
+  setView(isPC ? 'pc' : 'mobile');
+}
+
+window.onload = () => {
+  setView(window.innerWidth > 768 ? 'pc' : 'mobile');
+  updateInputView();
+
+  // Firebase ログイン状態を監視
+  if (firebaseReady && auth) {
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        currentUser = user;
+        isLoggedIn = true;
+        onLoginStateChanged();
+        loadUserDataFromFirebase();
+      } else {
+        currentUser = null;
+        isLoggedIn = false;
+        onLogoutStateChanged();
+        loadUserData();
+      }
+    });
+  } else {
+    // Firebase がロードされていない場合
+    loadUserData();
+  }
+
+  document.getElementById('item').addEventListener('change', () => {
+    const id = Number(document.getElementById('item').value);
+    if (!id) return;
+
+    document.getElementById('date').disabled = false;
+    document.getElementById('addBtn').disabled = false;
+    document.getElementById('unit').disabled = false;
+    document.getElementById('unit-minus').disabled = false;
+    document.getElementById('unit-plus').disabled = false;
+
+    const unit = calcUnit(id, 1);
+    document.getElementById('unit').value = unit;
+
+    // 病例数項目の場合は入力フィールドを表示
+    const countGroup = document.getElementById('count-input-group');
+    const countInput = document.getElementById('count-value');
+    if (items[id].type === 'count') {
+      countGroup.classList.remove('hidden');
+      countInput.disabled = false;
+      countInput.value = 0;
+    } else {
+      countGroup.classList.add('hidden');
+      countInput.disabled = true;
+      countInput.value = '';
+    }
+  });
+};
+
+// ===== 項目 =====
+const items = {
+
+      // 総合診療
+      101: { name: 'ポートフォリオ', type: 'per_unit', unit: (10 / 14), sp: '総合診療' },
+      102: { name: '総合診療講習会', type: 'per_unit', unit: 1, sp: '総合診療' },
+      103: { name: '基本領域学会', type: 'per_unit', unit: 1, sp: '総合診療' },
+      104: { name: '基本領域学会', type: 'per_unit', unit: 2, sp: '総合診療' },
+      105: { name: 'サブスペ学会', type: 'per_unit', unit: 1, sp: '総合診療' },
+      106: { name: '日本医学会総会', type: 'per_unit', unit: 1, sp: '総合診療' },
+      107: { name: '海外の学会', type: 'per_unit', unit: 1, sp: '総合診療' },
+      108: { name: '指導医講習会', type: 'per_unit', unit: 1, sp: '総合診療' },
+      109: { name: '機構認定その他の講習会', type: 'per_unit', unit: 1, sp: '総合診療' },
+      110: { name: '機構認定団体共済講習会', type: 'per_unit', unit: 1, sp: '総合診療' },
+      111: { name: '学会発表', type: 'per_unit', unit: 1, sp: '総合診療' },
+      112: { name: '筆頭~第2著者', type: 'per_unit', unit: 3, sp: '総合診療' },
+      113: { name: '共著者', type: 'per_unit', unit: 1, sp: '総合診療' },
+      114: { name: '学会・講演会の座長・司会', type: 'per_unit', unit: 1, sp: '総合診療' },
+
+      // 小児
+      201: { name: '診療実績：症例数', type: 'count', unit: 0, sp: '小児科' },
+      202: { name: '領域講習', type: 'per_unit', unit: 1, sp: '小児科' },
+      203: { name: '学会発表', type: 'fixed', unit: 5, sp: '小児科' },
+      204: { name: '論文（筆頭）', type: 'fixed', unit: 2, sp: '小児科' },
+      205: { name: '論文（共著）', type: 'fixed', unit: 1, sp: '小児科' },
+      206: { name: '学会筆頭・第2・座長司会', type: 'fixed', unit: 1, sp: '小児科' },
+      207: { name: '学会参加', type: 'fixed', unit: 1, sp: '小児科' },
+      208: { name: '活動実績1単位', type: 'fixed', unit: 1, sp: '小児科' },
+      209: { name: '学校医・園医', type: 'fixed', unit: 2, sp: '小児科' },
+      210: { name: '活動実績2単位', type: 'fixed', unit: 2, sp: '小児科' },
+
+      // 総合内科
+      401: { name: '内科学会総会', type: 'fixed', unit: 15, sp: '総合内科' },
+      402: { name: '内科学会総会演者', type: 'fixed', unit: 3, sp: '総合内科' },
+      403: { name: '生涯教育講演会A', type: 'fixed', unit: 10, sp: '総合内科' },
+      404: { name: '生涯教育講演会B', type: 'fixed', unit: 10, sp: '総合内科' },
+      405: { name: '生涯教育講演会C', type: 'fixed', unit: 10, sp: '総合内科' },
+      406: { name: '内科学への展望', type: 'fixed', unit: 10, sp: '総合内科' },
+      407: { name: 'セルトレ問題', type: 'fixed', unit: 5, sp: '総合内科' },
+      408: { name: '各支部生涯教育講演会', type: 'fixed', unit: 5, sp: '総合内科' },
+      409: { name: '内科地方会', type: 'fixed', unit: 5, sp: '総合内科' },
+      410: { name: '内科地方会演者', type: 'fixed', unit: 2, sp: '総合内科' },
+      411: { name: '地方会教育セミナー', type: 'fixed', unit: 2, sp: '総合内科' },
+      412: { name: '専門医部会単独CPC', type: 'fixed', unit: 2, sp: '総合内科' },
+      413: { name: '内科学会雑誌筆頭者', type: 'fixed', unit: 10, sp: '総合内科' },
+      414: { name: 'Internal Medicine筆頭者', type: 'fixed', unit: 10, sp: '総合内科' },
+      415: { name: '生涯教育講演会オンデマンド問題', type: 'fixed', unit: 5, sp: '総合内科' },
+      416: { name: '日本医学会総会', type: 'fixed', unit: 10, sp: '総合内科' },
+      417: { name: '国際内科会議', type: 'fixed', unit: 5, sp: '総合内科' },
+      418: { name: '指定15学会総会・講演会', type: 'fixed', unit: 5, sp: '総合内科' },
+      419: { name: '医師会主催指定講演会', type: 'fixed', unit: 2, sp: '総合内科' },
+      420: { name: 'JDDW', type: 'fixed', unit: 10, sp: '総合内科' },
+      421: { name: '内科学会雑誌論文筆頭者', type: 'fixed', unit: 5, sp: '総合内科' },
+
+      // 共通講習（8項目）
+      301: { name: '(共通)医療安全', type: 'fixed', unit: 1, sp: '共通講習' },
+      302: { name: '(共通)感染対策', type: 'fixed', unit: 1, sp: '共通講習' },
+      303: { name: '(共通)医療倫理', type: 'fixed', unit: 1, sp: '共通講習' },
+      304: { name: '(共通)医療制度と法律', type: 'fixed', unit: 1, sp: '共通講習' },
+      305: { name: '(共通)地域医療', type: 'fixed', unit: 1, sp: '共通講習' },
+      306: { name: '(共通)医療福祉制度', type: 'fixed', unit: 1, sp: '共通講習' },
+      307: { name: '(共通)医療経済', type: 'fixed', unit: 1, sp: '共通講習' },
+      308: { name: '(共通)両立支援', type: 'fixed', unit: 1, sp: '共通講習' }
+    };
+
+    // ===== 保存 =====
+function saveAll() {
+  if (isLoggedIn && currentUser && firebaseReady && database) {
+    // Firebase に保存
+    const userRef = database.ref('users/' + currentUser.uid);
+    userRef.set({
+      records: records,
+      meta: meta,
+      selectedSpecialties: selectedSpecialties,
+      updatedAt: new Date().toISOString()
+    });
+  } else {
+    // LocalStorage に保存
+    localStorage.setItem('records', JSON.stringify(records));
+    localStorage.setItem('meta', JSON.stringify(meta));
+    localStorage.setItem('selectedSpecialties', JSON.stringify(selectedSpecialties));
+    localStorage.setItem('updatedAt', new Date().toISOString());
+  }
+}
+
+    // ===== 読込 =====
+function loadUserData(){
+  records = JSON.parse(localStorage.getItem('records') || '[]');
+  meta = JSON.parse(localStorage.getItem('meta') || '{}');
+  selectedSpecialties = JSON.parse(localStorage.getItem('selectedSpecialties') || '[]');
+
+  document.querySelectorAll('#specialty-block input').forEach(el => {
+    el.checked = selectedSpecialties.includes(el.value);
+  });
+
+  const updatedAt = localStorage.getItem('updatedAt');
+  if (updatedAt) {
+    const d = new Date(updatedAt);
+    const el = document.getElementById('updatedAt');
+    if (el) {
+      el.innerText = `最終更新: ${d.toLocaleString()}`;
+    }
+  }
+  render();
+}
+
+function loadUserDataFromFirebase() {
+  if (!isLoggedIn || !currentUser || !firebaseReady || !database) return;
+
+  const userRef = database.ref('users/' + currentUser.uid);
+  userRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      records = data.records || [];
+      meta = data.meta || {};
+      selectedSpecialties = data.selectedSpecialties || [];
+      
+      document.querySelectorAll('#specialty-block input').forEach(el => {
+        el.checked = selectedSpecialties.includes(el.value);
+      });
+
+      render();
+    } else {
+      // 新しいユーザー：空データで初期化
+      records = [];
+      meta = {};
+      selectedSpecialties = [];
+      render();
+    }
+  });
+}
+
+// ===== Google ログイン =====
+function loginWithGoogle() {
+  // Firebaseがまだ準備できていない場合は再試行
+  if (!firebaseReady) {
+    initFirebase();
+    // 少し待って再試行
+    setTimeout(() => {
+      if (firebaseReady && auth) {
+        doGoogleLogin();
+      } else {
+        alert('認証システムがまだロードされていません。しばらくしてから再度お試しください。');
+      }
+    }, 1000);
+    return;
+  }
+
+  doGoogleLogin();
+}
+
+function doGoogleLogin() {
+  if (!auth) {
+    alert('認証システムが利用できません。');
+    return;
+  }
+
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider)
+    .then((result) => {
+      currentUser = result.user;
+      isLoggedIn = true;
+      onLoginStateChanged();
+      loadUserDataFromFirebase();
+    })
+    .catch((error) => {
+      console.error('ログインエラー:', error);
+      alert('ログインに失敗しました: ' + error.message);
+    });
+}
+
+function logoutUser() {
+  if (confirm('ログアウトしますか？')) {
+    if (firebaseReady && auth) {
+      auth.signOut()
+        .then(() => {
+          currentUser = null;
+          isLoggedIn = false;
+          onLogoutStateChanged();
+          records = [];
+          meta = {};
+          selectedSpecialties = [];
+          render();
+        })
+        .catch((error) => {
+          console.error('ログアウトエラー:', error);
+        });
+    }
+  }
+}
+
+function onLoginStateChanged() {
+  document.getElementById('login-ui').classList.add('hidden');
+  document.getElementById('logout-ui').classList.remove('hidden');
+  document.getElementById('user-name').innerText = currentUser.displayName || currentUser.email;
+  
+  // 入力フィールドを有効化
+  document.getElementById('specialty-block').style.display = 'block';
+  document.getElementById('input-block').parentElement.style.display = 'block';
+}
+
+function onLogoutStateChanged() {
+  document.getElementById('login-ui').classList.remove('hidden');
+  document.getElementById('logout-ui').classList.add('hidden');
+  
+  // 入力フィールドを無効化
+  document.getElementById('specialty-block').style.display = 'none';
+  document.getElementById('input-block').parentElement.style.display = 'none';
+}
+
+ // ===== UI =====
+ function filterItems() {
+  const sp = document.getElementById('input-specialty').value;
+  const select = document.getElementById('item'); // ←これ必須
+
+  select.innerHTML = `<option value="" disabled selected>項目を選択してください</option>`;
+
+  document.getElementById('date').disabled = true;
+  document.getElementById('addBtn').disabled = true;
+  document.getElementById('unit').disabled = true;
+  document.getElementById('unit-minus').disabled = true;
+  document.getElementById('unit-plus').disabled = true;
+
+  if (!sp) return;
+
+  Object.keys(items).forEach(id => {
+    if (items[id].sp === sp) {
+      select.innerHTML += `<option value="${id}">${items[id].name}</option>`;
+    }
+  });
+ }
+
+// ===== 単位 =====
+function calcUnit(id, val) {
+  const i = items[id];
+  if (i.type === 'fixed') return i.unit;
+  if (i.type === 'count') return 0;
+  return Math.round(val * i.unit * 10) / 10;
+}
+
+function adjustUnit(delta) {
+  const unitInput = document.getElementById('unit');
+  let currentValue = parseFloat(unitInput.value) || 0;
+  currentValue += delta;
+  
+  // 0未満にならないようにする
+  if (currentValue < 0) currentValue = 0;
+  
+  unitInput.value = currentValue;
+}
+
+// ===== 判定 =====
+function judge(sp) {
+
+const rec = records.filter(r => {
+  if (r.specialty === sp) return true;
+
+  if (items[r.item].sp === '共通講習') {
+    return judgeValidForSP(r, sp); 
+  }
+
+  return false;
+});
+
+  let total = rec.reduce((s, x) => s + x.unit, 0);
+  let msg = [];
+
+  // 共通講習で○印がついたものを各科単位数に加算
+  const commonRecords = records.filter(r => items[r.item].sp === '共通講習');
+  commonRecords.forEach(r => {
+    if (judgeValidForSP(r, sp)) {
+      total += r.unit;
+    }
+  });
+
+  if (sp === '小児科') {
+    const cases = rec.filter(r => r.item === 201).reduce((s, x) => s + x.value, 0);
+    const lecture = rec.filter(r => r.item === 202).reduce((s, x) => s + x.unit, 0);
+
+    if (cases >= 100) total += 10;
+    if (cases < 100) msg.push(`症例あと${100 - cases}`);
+    if (lecture < 20) msg.push(`領域講習あと${20 - lecture}`);
+    if (total < 50) msg.push(`単位あと${(50 - total).toFixed(1)}`);
+  }
+
+  if (sp === '総合診療') {
+    const mp = rec.filter(r => r.item === 101).reduce((s, x) => s + x.value, 0);
+    if (mp < 14) msg.push(`ミニポートフォリオあと${14 - mp}`);
+    if (total < 50) msg.push(`単位あと${(50 - total).toFixed(1)}`);
+  }
+
+  if (sp === '総合内科') {
+    const ids = rec.map(r => r.item);
+    if (![401, 402, 403].some(x => ids.includes(x))) msg.push("必須講演不足");
+    if (!ids.includes(404)) msg.push("セルフトレ不足");
+    if (total < 75) msg.push(`単位あと${(75 - total).toFixed(1)}`);
+  }
+
+  return { total, msg };
+}
+
+function isInPeriod(date, start, end) {
+  if (!date || !start || !end) return false;
+
+  const d = new Date(date);
+  const s = new Date(start);
+  const e = new Date(end);
+
+  return d >= s && d <= e;
+}
+
+function judgeValidForSP(record, sp) {
+  const m = meta[sp];
+  if (!m?.start || !m?.end) return false;
+
+  if (!record.date) return true;
+
+  return isInPeriod(record.date, m.start, m.end);
+}
+
+// ===== 表示 =====
+function render() {
+
+  const res = document.getElementById('result');
+  const hist = document.getElementById('history');
+
+  res.innerHTML = '';
+  hist.innerHTML = '';
+
+  //＝＝＝＝専門医＝＝＝＝
+  selectedSpecialties.forEach(sp => {
+
+    const j = judge(sp);
+    const ok = j.msg.length === 0;
+    const m = meta[sp] || {};
+
+    res.innerHTML += `
+    <div class="bg-white p-3 rounded mb-3 border-l-4 ${ok ? 'border-green-500' : 'border-red-500'}">
+      <div class="font-bold">${sp}</div>
+      <div>総単位：${j.total.toFixed(1)}</div>
+
+      <div class="text-sm mt-2">認定期間</div>
+      <input type="month" value="${m.start || ''}" onchange="saveMeta('${sp}','start',this.value)">
+      〜
+      <input type="month" value="${m.end || ''}" onchange="saveMeta('${sp}','end',this.value)">
+
+      <div class="text-sm mt-2">試験年度</div>
+      <select onchange="saveMeta('${sp}','exam',this.value)" class="border rounded p-1">
+        <option value="">--- 選択 ---</option>
+        ${[2025,2026,2027,2028,2029,2030,2031,2032,2033,2034,2035].map(y => `<option value="${y}" ${m.exam == y ? 'selected' : ''}>${y}</option>`).join('')}
+      </select>
+
+      <div class="${ok ? 'text-green-600' : 'text-red-600'} mt-2">
+        ${ok ? '更新可能' : j.msg.join('<br>')}
+      </div>
+    </div>
+    `;
+  });
+  // ピンク色の余白を追加
+  res.innerHTML += `<div class="h-4 bg-pink-100"></div>`;
+  // ===== 共通講習まとめ =====
+  const common = records.filter(r => items[r.item].sp === '共通講習');
+  const unique = {};
+  common.forEach(r => unique[r.item] = true);
+  const commonTotal = Object.keys(unique).length;
+
+  res.innerHTML += `
+  <div class="bg-white p-3 rounded mb-3 border-l-4 ${commonTotal >= 8 ? 'border-green-500' : 'border-red-500'}">
+    <div class="font-bold">共通講習</div>
+    <div>取得単位：${commonTotal} / 8</div>
+    <div class="${commonTotal >= 8 ? 'text-green-600' : 'text-red-600'} mt-2">
+      ${commonTotal >= 8 ? '達成' : `あと${8 - commonTotal}単位`}
+    </div>
+  </div>
+  `;
+
+  // ===== 共通講習 入力セクション =====
+  res.innerHTML += `
+  <div class="bg-orange-50 p-3 rounded mb-3">
+    <div class="font-bold mb-2">共通講習 入力</div>
+    <div class="space-y-2">
+      <select id="common-item" class="w-full border rounded-lg p-2">
+        <option value="" disabled selected>--- 共通講習を選択 ---</option>
+        ${Object.keys(items)
+          .filter(id => items[id].sp === '共通講習')
+          .map(id => `<option value="${id}">${items[id].name}</option>`)
+          .join('')}
+      </select>
+      
+      <input id="common-date" type="date" class="w-full border rounded-lg p-2">
+      
+      <button onclick="addCommonRecord()" class="w-full bg-green-500 text-white p-2 rounded-lg">
+        ＋共通講習を追加
+      </button>
+    </div>
+  </div>
+  `;
+
+  // ===== 共通講習 テーブル =====
+  let table = `
+  <div class="bg-white p-3 rounded mb-4 overflow-x-auto">
+ <div class="font-bold mb-2">共通講習 履歴</div>
+ <table class="w-full text-sm border">
+  <tr class="bg-gray-100">
+  <th class="border p-1">項目</th>
+  <th class="border p-1">日付</th>
+  ${selectedSpecialties.map(sp => `<th class="border p-1">${sp}</th>`).join('')}
+  <th class="border p-1">操作</th>
+  </tr>
+  `;
+
+  Object.keys(items)
+  .filter(id => items[id].sp === '共通講習')
+  .forEach(id => {
+
+    const r = records.find(x => x.item == id);
+
+    table += `<tr>
+      <td class="border p-1">${items[id].name}</td>
+      <td class="border p-1">${r?.date || ''}</td>
+      ${selectedSpecialties.map(sp => {
+        const ok = r ? judgeValidForSP(r, sp) : false;
+        return `<td class="border p-1 text-center ${ok ? 'text-green-600' : 'text-gray-400'}">
+          ${r ? (ok ? '○' : '×') : ''}
+        </td>`;
+      }).join('')}
+
+      <td class="border p-1 text-center">
+  ${r ? `<button onclick="if(confirm('この講習履歴を削除しますか？')) deleteCommon(${id})" class="text-red-500 text-sm">削除</button>` : ''}
+</td>
+    </tr>`;
+  });
+
+  table += `</table></div>`;
+
+  hist.innerHTML += table;
+
+  // ピンク色の余白を追加
+  hist.innerHTML += `<div class="h-8 bg-pink-100"></div>`;
+
+  // ===== 履歴 =====
+  selectedSpecialties.forEach(sp => {
+  let h = `<div class="bg-white p-3 rounded mb-4"><div class="font-bold">${sp} 履歴</div>`;
+
+  records.forEach((r, i) => {
+    if (items[r.item].sp === sp) {
+
+      // ===== スマホ表示 =====
+      if (currentView === 'mobile') {
+        h += `
+        <div class="border-b py-2">
+          <div class="font-bold">${items[r.item].name}</div>
+          <div class="text-sm text-gray-600">${r.value}回 / ${r.unit}単位</div>
+          <button onclick="deleteRecord(${i})" class="text-red-500 text-sm mt-1">削除</button>
+        </div>
+        `;
+      }
+
+      // ===== PC表示 =====
+      else {
+        h += `
+        <div class="flex justify-between items-center border-b py-1">
+          <div>${items[r.item].name}：${r.value}回（${r.unit}単位）</div>
+          <button onclick="deleteRecord(${i})" class="text-red-500 text-sm">削除</button>
+        </div>
+        `;
+      }
+
+    }
+  });
+
+  h += `</div>`;
+  hist.innerHTML += h;
+
+});
+
+}
+
+function addRecord() {
+
+  const id = Number(document.getElementById('item').value);
+  const unit = Number(document.getElementById('unit').value);
+  const date = document.getElementById('date').value;
+  const sp = document.getElementById('input-specialty').value;
+
+  if (!id || !sp) return;
+
+  // 病例数の場合はvalueに入力を使用
+  let value = 1;
+  const countInput = document.getElementById('count-value');
+  if (countInput && countInput.style.display !== 'none') {
+    value = Number(countInput.value) || 0;
+  }
+
+  const isCommon = items[id].sp === '共通講習';
+
+  if (isCommon) {
+    const index = records.findIndex(r => r.item === id && r.specialty === sp);
+
+    if (index >= 0) {
+      records[index] = {
+        item: id,
+        specialty: sp,
+        value: 1, // ←固定
+        unit,
+        date
+      };
+    } else {
+      records.push({
+        item: id,
+        specialty: sp,
+        value: value,
+        unit,
+        date
+      });
+    }
+
+  } else {
+    records.push({
+      item: id,
+      specialty: sp,
+      value: value,
+      unit,
+      date
+    });
+  }
+
+  // リセット
+  document.getElementById('date').value = '';
+  document.getElementById('item').value = '';
+  document.getElementById('unit').value = '';
+
+  // 入力ロック
+  document.getElementById('date').disabled = true;
+  document.getElementById('addBtn').disabled = true;
+  document.getElementById('unit').disabled = true;
+  document.getElementById('unit-minus').disabled = true;
+  document.getElementById('unit-plus').disabled = true;
+
+  saveAll();
+  render();
+}
+
+function addCommonRecord() {
+  const id = Number(document.getElementById('common-item').value);
+  const date = document.getElementById('common-date').value;
+
+  if (!id || !date) {
+    alert('項目と日付を選択してください');
+    return;
+  }
+
+  const item = items[id];
+  const index = records.findIndex(r => r.item === id);
+
+  if (index >= 0) {
+    // 既存の共通講習は上書き
+    records[index] = {
+      item: id,
+      specialty: null,
+      value: 1,
+      unit: item.unit,
+      date
+    };
+  } else {
+    // 新規追加
+    records.push({
+      item: id,
+      specialty: null,
+      value: 1,
+      unit: item.unit,
+      date
+    });
+  }
+
+  // リセット
+  document.getElementById('common-item').value = '';
+  document.getElementById('common-date').value = '';
+
+  saveAll();
+  render();
+}
+
+//=====削除=====
+function deleteRecord(index) {
+  records.splice(index, 1);
+  saveAll();
+  render();
+  showUndo();
+}
+
+function saveMeta(sp, key, value){
+  meta[sp] = { ...meta[sp], [key]: value };
+  saveAll();
+}
+
+function scrollTo(id){
+  document.getElementById(id)?.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+}
+
+function updateSpecialty() {
+  console.log("checked:", [...document.querySelectorAll('input:checked')].map(e => e.value));
+
+  selectedSpecialties = [...document.querySelectorAll('#specialty-block input:checked')]
+  .map(e => e.value);
+
+  const enabled = selectedSpecialties.length > 0;
+
+  document.getElementById('input-specialty').disabled = !enabled;
+  document.getElementById('item').disabled = !enabled;
+
+  document.getElementById('date').disabled = !enabled;
+  document.getElementById('addBtn').disabled = !enabled;
+  document.getElementById('unit').disabled = !enabled;
+  document.getElementById('unit-minus').disabled = !enabled;
+  document.getElementById('unit-plus').disabled = !enabled;
+
+  renderSpecialtySelect(); 
+  filterItems();
+  render();
+
+  if (selectedSpecialties.length > 0) {
+    scrollTo('input-block');
+  }
+
+  saveAll();
+}
+
+function deleteCommon(itemId) {
+  const index = records.findIndex(r => r.item === itemId);
+  if (index === -1) return;
+
+  lastDeleted = {
+    record: records[index],
+    index: index
+  };
+
+  records.splice(index, 1); // ← filterじゃなくてこれでOK
+  saveAll();
+  render();
+  showUndo();
+}
+
+
+
+function renderSpecialtySelect() {
+  const select = document.getElementById('input-specialty');
+  select.innerHTML = `<option value="" disabled selected>入力する科を選択</option>`;
+
+  selectedSpecialties.forEach(sp => {
+    select.innerHTML += `<option value="${sp}">${sp}</option>`;
+  });
+}
+
+function showUndo() {
+  const box = document.getElementById('undoBox');
+  box.classList.remove('hidden');
+
+  setTimeout(() => {
+    box.classList.add('hidden');
+    lastDeleted = null;
+  }, 30000);
+}
+
+function undoDelete() {
+  if (!lastDeleted) return;
+
+  records.splice(lastDeleted.index, 0, lastDeleted.record);
+
+  saveAll();
+  render();
+
+  document.getElementById('undoBox').classList.add('hidden');
+  lastDeleted = null;
+}
+
+function updateInputView() {
+  setInputEnabled(window.innerWidth > 768);
+}
+
+window.onresize = updateInputView;
+
+</script>
+</body>
+</html>
