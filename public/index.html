@@ -400,6 +400,8 @@ window.onload = () => {
     loadUserData();
   }
 
+  window.addEventListener('resize', updateInputView);
+
   document.getElementById('item').addEventListener('change', () => {
     const id = Number(document.getElementById('item').value);
     if (!id) return;
