@@ -226,22 +226,22 @@
       disabled>
   </div>
 
-  <div class="flex items-end gap-3">
-    <div class="flex-1">
+  <div class="flex items-end gap-3 flex-wrap">
+    <div class="flex-1 min-w-0">
       <div class="text-xs text-gray-500 mb-1">単位</div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 min-w-0">
         <button onclick="adjustUnit(-1)" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-lg font-bold" disabled id="unit-minus">-</button>
         <input id="unit" type="number" step="0.1" min="0"
-          class="flex-1 border rounded-lg p-3 text-lg text-center bg-yellow-50 font-bold"
+          class="flex-1 min-w-0 border rounded-lg p-3 text-lg text-center bg-yellow-50 font-bold"
           disabled>
         <button onclick="adjustUnit(1)" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-lg font-bold" disabled id="unit-plus">+</button>
       </div>
     </div>
 
-    <div class="flex-1">
+    <div class="flex-1 min-w-0">
       <div class="text-xs text-gray-500 mb-1">日付</div>
       <input id="date" type="date"
-        class="w-full border rounded-lg p-3"
+        class="w-full min-w-0 border rounded-lg p-3"
         disabled>
     </div>
   </div>
@@ -375,8 +375,11 @@ let lastDeleted = null;
 
 function isMobileViewport() {
   const isNarrow = window.matchMedia('(max-width: 768px)').matches;
-  const isMobileUserAgent = /Mobi|Android|iPhone|iPod|iPad/.test(navigator.userAgent);
-  return isNarrow || isMobileUserAgent;
+  const ua = navigator.userAgent || '';
+  const isMobileUserAgent = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const isTouchDevice = navigator.maxTouchPoints > 1 || typeof window.orientation !== 'undefined';
+  const isDesktopLike = /Windows|Macintosh|Linux/.test(navigator.platform);
+  return isNarrow || (isMobileUserAgent && !isDesktopLike) || (isTouchDevice && !isDesktopLike);
 }
 
 function setInputEnabled(enabled){
