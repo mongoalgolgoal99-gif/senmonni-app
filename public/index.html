@@ -7,6 +7,43 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <style>
+    #login-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,218,221,0.96);
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      transition: opacity .4s ease, transform .4s ease;
+      opacity: 1;
+    }
+    #login-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-10px);
+    }
+    #login-overlay .overlay-card {
+      width: min(100%, 440px);
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      padding: 2rem;
+      box-shadow: 0 24px 80px rgba(0,0,0,.08);
+    }
+    .float-in {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity .4s ease, transform .4s ease;
+    }
+    .float-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+
   <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
@@ -17,7 +54,9 @@
 <body class="bg-pink-100 p-4">
   <div id="app" class="max-w-md mx-auto">
 
-    <h1 class="text-xl font-bold mb-4">専門医更新ナビ</h1>
+    <h1 class="text-4xl font-black mb-4 bg-gradient-to-r from-pink-500 via-red-500 to-purple-600 bg-clip-text text-transparent drop-shadow-lg">
+      専門医更新ナビ
+    </h1>
 
     <!-- 表示切替 -->
 <div class="bg-white p-3 rounded mb-3 text-center">
@@ -46,17 +85,96 @@
     </button>
   </div>
 </div>
+<div id="login-overlay">
+  <div class="overlay-card text-center">
+    <h2 class="text-xl font-bold mb-3">ログインが必要です</h2>
+    <p class="text-sm text-gray-600 mb-5">Google でログインすると、入力欄がアニメーションで表示されます。前回のログインは自動で記憶されます。</p>
+    <button onclick="loginWithGoogle()" class="px-5 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg">Google でログイン</button>
+  </div>
+</div>
 <div id="undoBox" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-2 rounded hidden">
   削除しました
   <button onclick="undoDelete()" class="ml-3 underline">元に戻す</button>
 </div>
 
 <!-- 専門医 -->
-<div id="specialty-block" class="bg-blue-50 rounded mb-3 p-3">
-  <div class="text-sm font-bold text-gray-700 mb-2">管理する専門医資格を選択</div>
-  <label><input type="checkbox" value="総合診療" onchange="updateSpecialty()"> 総合診療</label><br>
-  <label><input type="checkbox" value="小児科" onchange="updateSpecialty()"> 小児科</label><br>
-  <label><input type="checkbox" value="総合内科" onchange="updateSpecialty()"> 総合内科</label>
+<div id="specialty-block" class="bg-blue-50 rounded mb-3 p-3" style="display:none;">
+  <div class="text-sm font-bold text-gray-700 mb-4">管理する専門医資格を選択</div>
+  <div class="space-y-3">
+    <div class="flex items-center justify-between">
+      <label class="flex items-center">
+        <input type="checkbox" value="総合診療" onchange="updateSpecialty()" class="mr-2">
+        総合診療
+      </label>
+      <div class="flex gap-2 text-sm">
+        <select data-sp="総合診療" data-key="startYear" onchange="updateMeta('総合診療','start')" class="border rounded px-2 py-1 w-16">
+          <option value="">年</option>
+          ${[2019,2020,2021,2022,2023,2024,2025,2026].map(y => `<option value="${y}">${y}</option>`).join('')}
+        </select>
+        <select data-sp="総合診療" data-key="startMonth" onchange="updateMeta('総合診療','start')" class="border rounded px-2 py-1 w-12">
+          <option value="">月</option>
+          ${Array.from({length:12}, (_,i) => i+1).map(m => `<option value="${m.toString().padStart(2,'0')}">${m}</option>`).join('')}
+        </select>
+        <span>〜</span>
+        <select data-sp="総合診療" data-key="endYear" onchange="updateMeta('総合診療','end')" class="border rounded px-2 py-1 w-16">
+          <option value="">年</option>
+          ${[2019,2020,2021,2022,2023,2024,2025,2026].map(y => `<option value="${y}">${y}</option>`).join('')}
+        </select>
+        <select data-sp="総合診療" data-key="endMonth" onchange="updateMeta('総合診療','end')" class="border rounded px-2 py-1 w-12">
+          <option value="">月</option>
+          ${Array.from({length:12}, (_,i) => i+1).map(m => `<option value="${m.toString().padStart(2,'0')}">${m}</option>`).join('')}
+        </select>
+        <select data-sp="総合診療" data-key="exam" onchange="saveMeta('総合診療','exam',this.value)" class="border rounded px-2 py-1 w-20">
+          <option value="">年度</option>
+          ${[2026,2027,2028,2029,2030,2031,2032,2033,2034,2035].map(y => `<option value="${y}">${y}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="flex items-center justify-between">
+      <label class="flex items-center">
+        <input type="checkbox" value="小児科" onchange="updateSpecialty()" class="mr-2">
+        小児科
+      </label>
+      <div class="flex gap-2 text-sm">
+        <select data-sp="小児科" data-key="startYear" onchange="updateMeta('小児科','start')" class="border rounded px-2 py-1 w-16">
+          <option value="">年</option>
+          ${[2019,2020,2021,2022,2023,2024,2025,2026].map(y => `<option value="${y}">${y}</option>`).join('')}
+        </select>
+        <select data-sp="小児科" data-key="startMonth" onchange="updateMeta('小児科','start')" class="border rounded px-2 py-1 w-12">
+          <option value="">月</option>
+          ${Array.from({length:12}, (_,i) => i+1).map(m => `<option value="${m.toString().padStart(2,'0')}">${m}</option>`).join('')}
+        </select>
+        <span>〜</span>
+        <select data-sp="小児科" data-key="endYear" onchange="updateMeta('小児科','end')" class="border rounded px-2 py-1 w-16">
+          <option value="">年</option>
+          ${[2019,2020,2021,2022,2023,2024,2025,2026].map(y => `<option value="${y}">${y}</option>`).join('')}
+        </select>
+        <select data-sp="小児科" data-key="endMonth" onchange="updateMeta('小児科','end')" class="border rounded px-2 py-1 w-12">
+          <option value="">月</option>
+          ${Array.from({length:12}, (_,i) => i+1).map(m => `<option value="${m.toString().padStart(2,'0')}">${m}</option>`).join('')}
+        </select>
+        <select data-sp="小児科" data-key="exam" onchange="saveMeta('小児科','exam',this.value)" class="border rounded px-2 py-1 w-20">
+          <option value="">年度</option>
+          ${[2026,2027,2028,2029,2030,2031,2032,2033,2034,2035].map(y => `<option value="${y}">${y}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="flex items-center justify-between">
+      <label class="flex items-center">
+        <input type="checkbox" value="総合内科" onchange="updateSpecialty()" class="mr-2">
+        総合内科
+      </label>
+      <div class="flex gap-2 text-sm">
+        <input type="month" data-sp="総合内科" data-key="start" placeholder="開始" onchange="saveMeta('総合内科','start',this.value)" class="border rounded px-2 py-1 w-24">
+        <span>〜</span>
+        <input type="month" data-sp="総合内科" data-key="end" placeholder="終了" onchange="saveMeta('総合内科','end',this.value)" class="border rounded px-2 py-1 w-24">
+        <select data-sp="総合内科" data-key="exam" onchange="saveMeta('総合内科','exam',this.value)" class="border rounded px-2 py-1 w-20">
+          <option value="">年度</option>
+          ${[2025,2026,2027,2028,2029,2030,2031,2032,2033,2034,2035].map(y => `<option value="${y}">${y}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="bg-green-50 rounded mb-3">
@@ -69,8 +187,8 @@
 </div>
 
 <!-- 入力 -->
-<div class="bg-white rounded mb-3">
-<div id="input-block" class="bg-white rounded-xl shadow p-4 space-y-3">
+<div class="bg-white rounded mb-3" style="display:none;">
+<div id="input-block" class="bg-white rounded-xl shadow p-4 space-y-3 float-in">
 
   <select id="item"
     class="w-full border rounded-lg p-3"
@@ -142,6 +260,10 @@ function initFirebase() {
       firebase.initializeApp(firebaseConfig);
       auth = firebase.auth();
       database = firebase.database();
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((error) => {
+        console.warn('Auth persistence error:', error);
+      });
+      auth.onAuthStateChanged(handleAuthState);
       firebaseReady = true;
       console.log('Firebase initialized');
     } catch (e) {
@@ -172,6 +294,20 @@ window.addEventListener('load', waitForFirebase);
 
 let currentUser = null;
 let isLoggedIn = false;
+
+function handleAuthState(user) {
+  if (user) {
+    currentUser = user;
+    isLoggedIn = true;
+    onLoginStateChanged();
+    loadUserDataFromFirebase();
+  } else {
+    currentUser = null;
+    isLoggedIn = false;
+    onLogoutStateChanged();
+    loadUserData();
+  }
+}
 
 // ===== 表示切替 =====
 function setView(mode) {
@@ -231,24 +367,11 @@ function updateInputView() {
 window.onload = () => {
   setView(window.innerWidth > 768 ? 'pc' : 'mobile');
   updateInputView();
+  onLogoutStateChanged();
 
-  // Firebase ログイン状態を監視
   if (firebaseReady && auth) {
-    auth.onAuthStateChanged((user) => {
-      if (user) {
-        currentUser = user;
-        isLoggedIn = true;
-        onLoginStateChanged();
-        loadUserDataFromFirebase();
-      } else {
-        currentUser = null;
-        isLoggedIn = false;
-        onLogoutStateChanged();
-        loadUserData();
-      }
-    });
+    handleAuthState(auth.currentUser);
   } else {
-    // Firebase がロードされていない場合
     loadUserData();
   }
 
@@ -366,24 +489,14 @@ function saveAll() {
 }
 
     // ===== 読込 =====
-function loadUserData(){
-  records = JSON.parse(localStorage.getItem('records') || '[]');
-  meta = JSON.parse(localStorage.getItem('meta') || '{}');
-  selectedSpecialties = JSON.parse(localStorage.getItem('selectedSpecialties') || '[]');
-
-  document.querySelectorAll('#specialty-block input').forEach(el => {
-    el.checked = selectedSpecialties.includes(el.value);
-  });
-
-  const updatedAt = localStorage.getItem('updatedAt');
-  if (updatedAt) {
-    const d = new Date(updatedAt);
-    const el = document.getElementById('updatedAt');
-    if (el) {
-      el.innerText = `最終更新: ${d.toLocaleString()}`;
+function loadMetaToUI() {
+  document.querySelectorAll('#specialty-block [data-sp]').forEach(el => {
+    const sp = el.dataset.sp;
+    const key = el.dataset.key;
+    if (meta[sp] && meta[sp][key]) {
+      el.value = meta[sp][key];
     }
-  }
-  render();
+  });
 }
 
 function loadUserDataFromFirebase() {
@@ -401,12 +514,14 @@ function loadUserDataFromFirebase() {
         el.checked = selectedSpecialties.includes(el.value);
       });
 
+      loadMetaToUI();
       render();
     } else {
       // 新しいユーザー：空データで初期化
       records = [];
       meta = {};
       selectedSpecialties = [];
+      loadMetaToUI();
       render();
     }
   });
@@ -475,19 +590,23 @@ function onLoginStateChanged() {
   document.getElementById('login-ui').classList.add('hidden');
   document.getElementById('logout-ui').classList.remove('hidden');
   document.getElementById('user-name').innerText = currentUser.displayName || currentUser.email;
+  document.getElementById('login-overlay').classList.add('hidden');
   
   // 入力フィールドを有効化
   document.getElementById('specialty-block').style.display = 'block';
   document.getElementById('input-block').parentElement.style.display = 'block';
+  document.getElementById('input-block').classList.add('visible');
 }
 
 function onLogoutStateChanged() {
   document.getElementById('login-ui').classList.remove('hidden');
   document.getElementById('logout-ui').classList.add('hidden');
+  document.getElementById('login-overlay').classList.remove('hidden');
   
   // 入力フィールドを無効化
   document.getElementById('specialty-block').style.display = 'none';
   document.getElementById('input-block').parentElement.style.display = 'none';
+  document.getElementById('input-block').classList.remove('visible');
 }
 
  // ===== UI =====
@@ -620,18 +739,6 @@ function render() {
     <div class="bg-white p-3 rounded mb-3 border-l-4 ${ok ? 'border-green-500' : 'border-red-500'}">
       <div class="font-bold">${sp}</div>
       <div>総単位：${j.total.toFixed(1)}</div>
-
-      <div class="text-sm mt-2">認定期間</div>
-      <input type="month" value="${m.start || ''}" onchange="saveMeta('${sp}','start',this.value)">
-      〜
-      <input type="month" value="${m.end || ''}" onchange="saveMeta('${sp}','end',this.value)">
-
-      <div class="text-sm mt-2">試験年度</div>
-      <select onchange="saveMeta('${sp}','exam',this.value)" class="border rounded p-1">
-        <option value="">--- 選択 ---</option>
-        ${[2025,2026,2027,2028,2029,2030,2031,2032,2033,2034,2035].map(y => `<option value="${y}" ${m.exam == y ? 'selected' : ''}>${y}</option>`).join('')}
-      </select>
-
       <div class="${ok ? 'text-green-600' : 'text-red-600'} mt-2">
         ${ok ? '更新可能' : j.msg.join('<br>')}
       </div>
