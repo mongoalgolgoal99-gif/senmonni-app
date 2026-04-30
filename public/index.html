@@ -373,6 +373,10 @@ let meta = {};
 let selectedSpecialties = [];
 let lastDeleted = null;
 
+function isMobileViewport() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
 function setInputEnabled(enabled){
   document.getElementById('input-block').style.display =
     enabled ? 'block' : 'none';
@@ -381,7 +385,7 @@ function setInputEnabled(enabled){
 }
 
 function updateInputView() {
-  const isPC = window.innerWidth > 768;
+  const isPC = !isMobileViewport();
 
   setInputEnabled(isPC);
 
@@ -390,7 +394,7 @@ function updateInputView() {
 
 window.onload = () => {
   populateYearSelects();
-  setView(window.innerWidth > 768 ? 'pc' : 'mobile');
+  setView(isMobileViewport() ? 'mobile' : 'pc');
   updateInputView();
   onLogoutStateChanged();
 
@@ -401,6 +405,14 @@ window.onload = () => {
   }
 
   window.addEventListener('resize', updateInputView);
+  window.addEventListener('orientationchange', updateInputView);
+
+  const mediaQuery = window.matchMedia('(max-width: 768px)');
+  if (typeof mediaQuery.addEventListener === 'function') {
+    mediaQuery.addEventListener('change', updateInputView);
+  } else if (typeof mediaQuery.addListener === 'function') {
+    mediaQuery.addListener(updateInputView);
+  }
 
   document.getElementById('item').addEventListener('change', () => {
     const id = Number(document.getElementById('item').value);
