@@ -109,24 +109,19 @@
       <div class="flex gap-2 text-sm">
         <select data-sp="総合診療" data-key="startYear" onchange="updateMeta('総合診療','start')" class="border rounded px-2 py-1 w-16">
           <option value="">年</option>
-          ${[2019,2020,2021,2022,2023,2024,2025,2026].map(y => `<option value="${y}">${y}</option>`).join('')}
         </select>
         <select data-sp="総合診療" data-key="startMonth" onchange="updateMeta('総合診療','start')" class="border rounded px-2 py-1 w-12">
           <option value="">月</option>
-          ${Array.from({length:12}, (_,i) => i+1).map(m => `<option value="${m.toString().padStart(2,'0')}">${m}</option>`).join('')}
         </select>
         <span>〜</span>
         <select data-sp="総合診療" data-key="endYear" onchange="updateMeta('総合診療','end')" class="border rounded px-2 py-1 w-16">
           <option value="">年</option>
-          ${[2019,2020,2021,2022,2023,2024,2025,2026].map(y => `<option value="${y}">${y}</option>`).join('')}
         </select>
         <select data-sp="総合診療" data-key="endMonth" onchange="updateMeta('総合診療','end')" class="border rounded px-2 py-1 w-12">
           <option value="">月</option>
-          ${Array.from({length:12}, (_,i) => i+1).map(m => `<option value="${m.toString().padStart(2,'0')}">${m}</option>`).join('')}
         </select>
         <select data-sp="総合診療" data-key="exam" onchange="saveMeta('総合診療','exam',this.value)" class="border rounded px-2 py-1 w-20">
           <option value="">年度</option>
-          ${[2026,2027,2028,2029,2030,2031,2032,2033,2034,2035].map(y => `<option value="${y}">${y}</option>`).join('')}
         </select>
       </div>
     </div>
@@ -138,24 +133,19 @@
       <div class="flex gap-2 text-sm">
         <select data-sp="小児科" data-key="startYear" onchange="updateMeta('小児科','start')" class="border rounded px-2 py-1 w-16">
           <option value="">年</option>
-          ${[2019,2020,2021,2022,2023,2024,2025,2026].map(y => `<option value="${y}">${y}</option>`).join('')}
         </select>
         <select data-sp="小児科" data-key="startMonth" onchange="updateMeta('小児科','start')" class="border rounded px-2 py-1 w-12">
           <option value="">月</option>
-          ${Array.from({length:12}, (_,i) => i+1).map(m => `<option value="${m.toString().padStart(2,'0')}">${m}</option>`).join('')}
         </select>
         <span>〜</span>
         <select data-sp="小児科" data-key="endYear" onchange="updateMeta('小児科','end')" class="border rounded px-2 py-1 w-16">
           <option value="">年</option>
-          ${[2019,2020,2021,2022,2023,2024,2025,2026].map(y => `<option value="${y}">${y}</option>`).join('')}
         </select>
         <select data-sp="小児科" data-key="endMonth" onchange="updateMeta('小児科','end')" class="border rounded px-2 py-1 w-12">
           <option value="">月</option>
-          ${Array.from({length:12}, (_,i) => i+1).map(m => `<option value="${m.toString().padStart(2,'0')}">${m}</option>`).join('')}
         </select>
         <select data-sp="小児科" data-key="exam" onchange="saveMeta('小児科','exam',this.value)" class="border rounded px-2 py-1 w-20">
           <option value="">年度</option>
-          ${[2026,2027,2028,2029,2030,2031,2032,2033,2034,2035].map(y => `<option value="${y}">${y}</option>`).join('')}
         </select>
       </div>
     </div>
@@ -165,12 +155,21 @@
         総合内科
       </label>
       <div class="flex gap-2 text-sm">
-        <input type="month" data-sp="総合内科" data-key="start" placeholder="開始" onchange="saveMeta('総合内科','start',this.value)" class="border rounded px-2 py-1 w-24">
+        <select data-sp="総合内科" data-key="startYear" onchange="updateMeta('総合内科','start')" class="border rounded px-2 py-1 w-16">
+          <option value="">年</option>
+        </select>
+        <select data-sp="総合内科" data-key="startMonth" onchange="updateMeta('総合内科','start')" class="border rounded px-2 py-1 w-12">
+          <option value="">月</option>
+        </select>
         <span>〜</span>
-        <input type="month" data-sp="総合内科" data-key="end" placeholder="終了" onchange="saveMeta('総合内科','end',this.value)" class="border rounded px-2 py-1 w-24">
+        <select data-sp="総合内科" data-key="endYear" onchange="updateMeta('総合内科','end')" class="border rounded px-2 py-1 w-16">
+          <option value="">年</option>
+        </select>
+        <select data-sp="総合内科" data-key="endMonth" onchange="updateMeta('総合内科','end')" class="border rounded px-2 py-1 w-12">
+          <option value="">月</option>
+        </select>
         <select data-sp="総合内科" data-key="exam" onchange="saveMeta('総合内科','exam',this.value)" class="border rounded px-2 py-1 w-20">
           <option value="">年度</option>
-          ${[2025,2026,2027,2028,2029,2030,2031,2032,2033,2034,2035].map(y => `<option value="${y}">${y}</option>`).join('')}
         </select>
       </div>
     </div>
@@ -365,6 +364,7 @@ function updateInputView() {
 }
 
 window.onload = () => {
+  populateYearSelects();
   setView(window.innerWidth > 768 ? 'pc' : 'mobile');
   updateInputView();
   onLogoutStateChanged();
@@ -515,6 +515,8 @@ function loadUserDataFromFirebase() {
       });
 
       loadMetaToUI();
+      renderSpecialtySelect();
+      filterItems();
       render();
     } else {
       // 新しいユーザー：空データで初期化
@@ -522,9 +524,34 @@ function loadUserDataFromFirebase() {
       meta = {};
       selectedSpecialties = [];
       loadMetaToUI();
+      renderSpecialtySelect();
+      filterItems();
       render();
     }
   });
+}
+
+function loadUserData(){
+  records = JSON.parse(localStorage.getItem('records') || '[]');
+  meta = JSON.parse(localStorage.getItem('meta') || '{}');
+  selectedSpecialties = JSON.parse(localStorage.getItem('selectedSpecialties') || '[]');
+
+  document.querySelectorAll('#specialty-block input').forEach(el => {
+    el.checked = selectedSpecialties.includes(el.value);
+  });
+
+  const updatedAt = localStorage.getItem('updatedAt');
+  if (updatedAt) {
+    const d = new Date(updatedAt);
+    const el = document.getElementById('updatedAt');
+    if (el) {
+      el.innerText = `最終更新: ${d.toLocaleString()}`;
+    }
+  }
+  loadMetaToUI();
+  renderSpecialtySelect();
+  filterItems();
+  render();
 }
 
 // ===== Google ログイン =====
@@ -1068,6 +1095,75 @@ function undoDelete() {
 
 function updateInputView() {
   setInputEnabled(window.innerWidth > 768);
+}
+
+function generateYearOptions(startYear, endYear) {
+  let options = '';
+  for (let y = startYear; y <= endYear; y++) {
+    options += `<option value="${y}">${y}</option>`;
+  }
+  return options;
+}
+
+function generateMonthOptions() {
+  let options = '';
+  for (let m = 1; m <= 12; m++) {
+    const padded = m.toString().padStart(2, '0');
+    options += `<option value="${padded}">${m}</option>`;
+  }
+  return options;
+}
+
+function populateYearSelects() {
+  const currentYear = new Date().getFullYear();
+  const startYears = generateYearOptions(currentYear - 7, currentYear);
+  const examYears = generateYearOptions(currentYear, currentYear + 10);
+  const months = generateMonthOptions();
+
+  document.querySelectorAll('[data-key="startYear"]').forEach(el => {
+    el.innerHTML = '<option value="">年</option>' + startYears;
+  });
+  document.querySelectorAll('[data-key="endYear"]').forEach(el => {
+    el.innerHTML = '<option value="">年</option>' + startYears;
+  });
+  document.querySelectorAll('[data-key="startMonth"]').forEach(el => {
+    el.innerHTML = '<option value="">月</option>' + months;
+  });
+  document.querySelectorAll('[data-key="endMonth"]').forEach(el => {
+    el.innerHTML = '<option value="">月</option>' + months;
+  });
+  document.querySelectorAll('[data-key="exam"]').forEach(el => {
+    el.innerHTML = '<option value="">年度</option>' + examYears;
+  });
+}
+
+function updateMeta(sp, key) {
+  const yearEl = document.querySelector(`[data-sp="${sp}"][data-key="${key}Year"]`);
+  const monthEl = document.querySelector(`[data-sp="${sp}"][data-key="${key}Month"]`);
+  if (yearEl && monthEl && yearEl.value && monthEl.value) {
+    const value = `${yearEl.value}-${monthEl.value}`;
+    saveMeta(sp, key, value);
+  }
+}
+
+function loadMetaToUI() {
+  document.querySelectorAll('#specialty-block [data-sp]').forEach(el => {
+    const sp = el.dataset.sp;
+    const key = el.dataset.key;
+    if (meta[sp]) {
+      if (key === 'startYear' && meta[sp].start) {
+        el.value = meta[sp].start.split('-')[0];
+      } else if (key === 'startMonth' && meta[sp].start) {
+        el.value = meta[sp].start.split('-')[1];
+      } else if (key === 'endYear' && meta[sp].end) {
+        el.value = meta[sp].end.split('-')[0];
+      } else if (key === 'endMonth' && meta[sp].end) {
+        el.value = meta[sp].end.split('-')[1];
+      } else if (key === 'exam') {
+        el.value = meta[sp].exam || '';
+      }
+    }
+  });
 }
 
 window.onresize = updateInputView;
