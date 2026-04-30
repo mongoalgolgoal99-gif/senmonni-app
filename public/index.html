@@ -374,7 +374,9 @@ let selectedSpecialties = [];
 let lastDeleted = null;
 
 function isMobileViewport() {
-  return window.matchMedia('(max-width: 768px)').matches;
+  const isNarrow = window.matchMedia('(max-width: 768px)').matches;
+  const isMobileUserAgent = /Mobi|Android|iPhone|iPod|iPad/.test(navigator.userAgent);
+  return isNarrow || isMobileUserAgent;
 }
 
 function setInputEnabled(enabled){
@@ -1130,10 +1132,6 @@ function undoDelete() {
 
   document.getElementById('undoBox').classList.add('hidden');
   lastDeleted = null;
-}
-
-function updateInputView() {
-  setInputEnabled(window.innerWidth > 768);
 }
 
 function generateYearOptions(startYear, endYear) {
